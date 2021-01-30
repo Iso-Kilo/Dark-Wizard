@@ -1,4 +1,81 @@
 
+; ---------------------------------------------------------------------------
+
+; enum BIOS
+BIOSHIntVector:  equ $FFFD08
+BIOSVIntVector:  equ $FFFD0E
+
+; ---------------------------------------------------------------------------
+
+; enum Registers
+SubCPUInt:       equ $A12000
+MemMode:         equ $A12003
+CommReg:         equ $A12010
+StatusReg:       equ $A12020
+
+; ---------------------------------------------------------------------------
+
+; enum MMDRegs
+MMDFlags:        equ $200000
+MMDRAMLoc:       equ $200002
+MMDRAMSize:      equ $200006
+MMDEntryPoint:   equ $200008
+MMDLvl4Int:      equ $20000E
+MMDLvl6Int:      equ $200010
+MMDStart:        equ $200100
+
+; ---------------------------------------------------------------------------
+
+; enum MMDIDs
+FileR11A:        equ 1
+FileR11B:        equ 2
+FileR11C:        equ 3
+FileR11D:        equ 4
+FileSega:        equ 5
+FileLevSel:      equ 6
+FileR12A:        equ 7
+FileR12B:        equ 8
+FileR12C:        equ 9
+FileR12D:        equ $A
+FileTitle:       equ $B
+FileWarp:        equ $C
+FileTimeAttack:  equ $D
+FileOpening:     equ $24
+FileCominSoon:   equ $25
+
+; ---------------------------------------------------------------------------
+
+; enum GlobalGameVars
+Act:             equ $FF1210
+Lives:           equ $FF1212
+Time:            equ $FF1222
+TimePeriod:      equ $FF123D
+FutureType:      equ $FF127A
+
+; ---------------------------------------------------------------------------
+
+; enum ActIDs
+Act1:            equ 0
+Act2:            equ 1
+
+; ---------------------------------------------------------------------------
+
+; enum TimeIDs
+TimePast:        equ 0
+BadFuture:       equ 0
+TimePresent:     equ 1
+GoodFuture:      equ 1
+TimeFuture:      equ 2
+
+; ---------------------------------------------------------------------------
+
+; enum MiscVars
+VDPCtrl:         equ $C00004
+TimeAttackFlag:  equ $FF0580
+VBlnkRtnCount:   equ $FF0583
+TimeAttackTime:  equ $FF0590
+TimeAttackSelection: equ $FF0594
+VDPDefaultMode:  equ $FF0596
 
 ;
 ; +-------------------------------------------------------------------------+
@@ -24,212 +101,271 @@
 
 ; Segment type: Pure code
 ; segment "ROM"
+Header:         dc.b   0
                 dc.b   0
-                dc.b   0
-                dc.l $FF0000
+                dc.l IPX                ; Entry point
                 dc.w $3FF
-                dc.l $FF0000
+                dc.l IPX                ; Entry point
                 dc.l 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 dc.l 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 dc.l 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
                 dc.l 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 ; ---------------------------------------------------------------------------
-                move.l  #$FF0212,($FFFD08).w
-                bset    #1,($A12003).l
+
+IPX:                                    ; DATA XREF: ROM:00FEFF02↑o
+                                        ; ROM:00FEFF08↑o
+                move.l  #VInt,(BIOSHIntVector).w
+                bset    #1,(MemMode).l
                 moveq   #5,d0
-                bsr.w   sub_286
+                bsr.w   LoadFile
 
-loc_116:                                ; CODE XREF: ROM:0000015E↓j
-                                        ; ROM:000001AA↓j ...
-                moveq   #$B,d0
-                bsr.w   sub_286
+LoadTitleScreen:                        ; CODE XREF: ROM:00FF005E↓j
+                                        ; ROM:00FF00AA↓j ...
+                moveq   #FileTitle,d0
+                bsr.w   LoadFile
                 tst.b   d1
-                beq.w   loc_1A4
+                beq.w   LoadOpening
                 tst.w   d0
-                beq.w   loc_1AE
-                bra.w   loc_254
+                beq.w   LoadMainGame
+                bra.w   LoadTimeAttack
 ; ---------------------------------------------------------------------------
-                moveq   #6,d0
-                bsr.w   sub_286
+
+LoadLevelSelect:
+                moveq   #FileLevSel,d0
+                bsr.w   LoadFile
                 mulu.w  #6,d0
-                move.w  word_164(pc,d0.w),($FF1210).l
-                move.b  byte_166(pc,d0.w),($FF123D).l
-                move.b  byte_167(pc,d0.w),($FF127A).l
-                move.w  byte_162(pc,d0.w),d0
-                move.b  #0,($FF0580).l
-                bsr.w   sub_286
-                bra.w   loc_116
+                move.w  LevSel_Act(pc,d0.w),(Act).l
+                move.b  LevSel_TimePeriod(pc,d0.w),(TimePeriod).l
+                move.b  LevSel_FutureType(pc,d0.w),(FutureType).l
+                move.w  LevSel_Zone(pc,d0.w),d0
+                move.b  #0,(TimeAttackFlag).l
+                bsr.w   LoadFile
+                bra.w   LoadTitleScreen
 ; ---------------------------------------------------------------------------
-byte_162:       dc.b 0, 1
-word_164:       dc.w 0
-byte_166:       dc.b 1
-byte_167:       dc.b 0, 0, 2, 0, 0, 0, 0, 0, 3, 0, 0, 2, 1, 0, 4, 0, 0
-                dc.b 2, 0, 0, 7, 0, 1, 1, 0, 0, 8, 0, 1, 0, 0, 0, 9, 0
-                dc.b 1, 2, 1, 0, $A, 0, 1, 2, 0, 0, $C, 0, 0, 0, 0, 0
-                dc.b $24, 0, 0, 0, 0, 0, $25, 0, 0, 0, 0
+LevSel_Zone:    dc.w FileR11A           ; MMD file/zone
+LevSel_Act:     dc.w Act1               ; Act
+LevSel_TimePeriod:dc.b TimePresent      ; Time period
+LevSel_FutureType:dc.b 0                ; Future type
+                dc.w FileR11B           ; SPZ1 Past
+                dc.w Act1
+                dc.b TimePast
+                dc.b 0
+                dc.w FileR11C           ; SPZ1 Good Future
+                dc.w Act1
+                dc.b TimeFuture
+                dc.b GoodFuture
+                dc.w FileR11D           ; SPZ1 Bad Future
+                dc.w Act1
+                dc.b TimeFuture
+                dc.b BadFuture
+                dc.w FileR12A           ; SPZ2 Present
+                dc.w Act2
+                dc.b TimePresent
+                dc.b 0
+                dc.w FileR12B           ; SPZ2 Past
+                dc.w Act2
+                dc.b TimePast
+                dc.b 0
+                dc.w FileR12C           ; SPZ2 Good Future
+                dc.w Act2
+                dc.b TimeFuture
+                dc.b GoodFuture
+                dc.w FileR12D           ; SPZ2 Bad Future
+                dc.w Act2
+                dc.b TimeFuture
+                dc.b BadFuture
+                dc.w FileWarp           ; Time Warp Sequence
+                dc.w 0
+                dc.b 0
+                dc.b 0
+                dc.w FileOpening        ; Opening FMV
+                dc.w 0
+                dc.b 0
+                dc.b 0
+                dc.w FileCominSoon      ; Comin' Soon Screen
+                dc.w 0
+                dc.b 0
+                dc.b 0
 ; ---------------------------------------------------------------------------
 
-loc_1A4:                                ; CODE XREF: ROM:0000011E↑j
-                moveq   #$24,d0 ; '$'
-                bsr.w   sub_286
-                bra.w   loc_116
+LoadOpening:                            ; CODE XREF: ROM:00FF001E↑j
+                moveq   #FileOpening,d0
+                bsr.w   LoadFile
+                bra.w   LoadTitleScreen
 ; ---------------------------------------------------------------------------
 
-loc_1AE:                                ; CODE XREF: ROM:00000124↑j
-                move.b  #1,($FF123D).l
-                move.b  #0,($FF0580).l
-                bsr.w   sub_1D8
-                tst.b   ($FF1212).l
-                beq.s   loc_1CE
-                bsr.w   sub_1E8
+LoadMainGame:                           ; CODE XREF: ROM:00FF0024↑j
+                move.b  #1,(TimePeriod).l
+                move.b  #0,(TimeAttackFlag).l
+                bsr.w   LoadR11
+                tst.b   (Lives).l
+                beq.s   LoadCominSoon
+                bsr.w   LoadR12
 
-loc_1CE:                                ; CODE XREF: ROM:000001C8↑j
-                moveq   #$25,d0 ; '%'
-                bsr.w   sub_286
-                bra.w   loc_116
+LoadCominSoon:                          ; CODE XREF: ROM:00FF00C8↑j
+                                        ; DATA XREF: ROM:00FF009E↑t
+                moveq   #FileCominSoon,d0
+                bsr.w   LoadFile
+                bra.w   LoadTitleScreen
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_1D8:                                ; CODE XREF: ROM:000001BE↑p
-                lea     word_244(pc),a0
-                move.w  #0,($FF1210).l
-                bra.w   loc_1F8
-; End of function sub_1D8
+LoadR11:                                ; CODE XREF: ROM:00FF00BE↑p
+                lea     R11Table(pc),a0
+                move.w  #0,(Act).l
+                bra.w   LoadLevel
+; End of function LoadR11
 
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_1E8:                                ; CODE XREF: ROM:000001CA↑p
-                lea     word_24C(pc),a0
-                move.w  #1,($FF1210).l
+LoadR12:                                ; CODE XREF: ROM:00FF00CA↑p
+                lea     R12Table(pc),a0
+                move.w  #1,(Act).l
                 bra.w   *+4
 ; ---------------------------------------------------------------------------
 
-loc_1F8:                                ; CODE XREF: sub_1D8+C↑j
-                                        ; sub_1E8+C↑j
+LoadLevel:                              ; CODE XREF: LoadR11+C↑j
+                                        ; LoadR12+C↑j
                 move.w  0(a0),d0
 
-loc_1FC:                                ; CODE XREF: sub_1E8+3E↓j
-                                        ; sub_1E8+46↓j ...
-                bsr.w   sub_286
-                tst.b   ($FF1212).l
-                beq.s   locret_242
-                btst    #7,($FF123D).l
-                beq.s   locret_242
-                moveq   #$C,d0
-                bsr.w   sub_286
-                move.b  ($FF123D).l,d1
+LoadTimeWarp:                           ; CODE XREF: LoadR12+3E↓j
+                                        ; LoadR12+46↓j ...
+                bsr.w   LoadFile
+                tst.b   (Lives).l
+                beq.s   LoadReturn
+                btst    #7,(TimePeriod).l
+                beq.s   LoadReturn
+                moveq   #FileWarp,d0
+                bsr.w   LoadFile
+                move.b  (TimePeriod).l,d1
                 move.w  2(a0),d0
                 andi.b  #$7F,d1
-                beq.s   loc_1FC
+                beq.s   LoadTimeWarp
                 move.w  0(a0),d0
                 subq.b  #1,d1
-                beq.s   loc_1FC
+                beq.s   LoadTimeWarp
                 move.w  6(a0),d0
-                tst.b   ($FF127A).l
-                beq.s   loc_1FC
+                tst.b   (FutureType).l
+                beq.s   LoadTimeWarp
                 move.w  4(a0),d0
-                bra.s   loc_1FC
+                bra.s   LoadTimeWarp
 ; ---------------------------------------------------------------------------
 
-locret_242:                             ; CODE XREF: sub_1E8+1E↑j
-                                        ; sub_1E8+28↑j
+LoadReturn:                             ; CODE XREF: LoadR12+1E↑j
+                                        ; LoadR12+28↑j
                 rts
-; End of function sub_1E8
+; End of function LoadR12
 
 ; ---------------------------------------------------------------------------
-word_244:       dc.w 1, 2, 3, 4         ; DATA XREF: sub_1D8↑o
-word_24C:       dc.w 7, 8, 9, $A        ; DATA XREF: sub_1E8↑o
+R11Table:       dc.w FileR11A           ; DATA XREF: LoadR11↑o
+                dc.w FileR11B
+                dc.w FileR11C
+                dc.w FileR11D
+R12Table:       dc.w FileR12A           ; DATA XREF: LoadR12↑o
+                dc.w FileR12B
+                dc.w FileR12C
+                dc.w FileR12D
 ; ---------------------------------------------------------------------------
 
-loc_254:                                ; CODE XREF: ROM:00000128↑j
-                                        ; ROM:loc_280↓j
-                moveq   #$D,d0
-                bsr.w   sub_286
-                move.w  d0,($FF0594).l
-                beq.w   loc_116
+LoadTimeAttack:                         ; CODE XREF: ROM:00FF0028↑j
+                                        ; ROM:TimeAttack_Index↓j
+                moveq   #FileTimeAttack,d0
+                bsr.w   LoadFile
+                move.w  d0,(TimeAttackSelection).l
+                beq.w   LoadTitleScreen
                 add.w   d0,d0
-                move.w  loc_280(pc,d0.w),d0
-                move.b  #1,($FF0580).l
-                bsr.w   sub_286
-                move.l  ($FF1222).l,($FF0590).l
+                move.w  TimeAttack_Index(pc,d0.w),d0
+                move.b  #1,(TimeAttackFlag).l
+                bsr.w   LoadFile
+                move.l  (Time).l,(TimeAttackTime).l
 
-loc_280:
-                bra.s   loc_254
+TimeAttack_Index:
+                bra.s   LoadTimeAttack
 ; ---------------------------------------------------------------------------
-                dc.w 1, 7
+TimeAttack_Levels:dc.w FileR11A
+                dc.w FileR12A
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_286:                                ; CODE XREF: ROM:00000112↑p
-                                        ; ROM:00000118↑p ...
+LoadFile:                               ; CODE XREF: ROM:00FF0012↑p
+                                        ; ROM:00FF0018↑p ...
                 move.l  a0,-(sp)
-                bsr.w   sub_31C
-                move.l  ($200008).l,d0
-                beq.s   loc_30E
+                bsr.w   SPExecute
+                move.l  (MMDEntryPoint).l,d0
+                beq.s   NoFile
                 movea.l d0,a0
-                move.l  ($200002).l,d0
-                beq.s   loc_2B2
+                move.l  (MMDRAMLoc).l,d0
+                beq.s   Interrupt4
                 movea.l d0,a2
-                lea     ($200100).l,a1
-                move.w  ($200006).l,d7
+                lea     (MMDStart).l,a1
+                move.w  (MMDRAMSize).l,d7
 
-loc_2AC:                                ; CODE XREF: sub_286+28↓j
+CopytoRAM:                              ; CODE XREF: LoadFile+28↓j
                 move.l  (a1)+,(a2)+
-                dbf     d7,loc_2AC
+                dbf     d7,CopytoRAM
 
-loc_2B2:                                ; CODE XREF: sub_286+16↑j
-                move.l  ($20000E).l,d0
-                beq.s   loc_2BE
-                move.l  d0,($FFFD0E).w
+Interrupt4:                             ; CODE XREF: LoadFile+16↑j
+                move.l  (MMDLvl4Int).l,d0
+                beq.s   Interrupt6
+                move.l  d0,(BIOSVIntVector).w
 
-loc_2BE:                                ; CODE XREF: sub_286+32↑j
-                move.l  ($200010).l,d0
-                beq.s   loc_2CA
-                move.l  d0,($FFFD08).w
+Interrupt6:                             ; CODE XREF: LoadFile+32↑j
+                move.l  (MMDLvl6Int).l,d0
+                beq.s   GetLaunchMode
+                move.l  d0,(BIOSHIntVector).w
 
-loc_2CA:                                ; CODE XREF: sub_286+3E↑j
-                btst    #6,($200000).l
-                beq.s   loc_2DC
-                bset    #1,($A12003).l
+GetLaunchMode:                          ; CODE XREF: LoadFile+3E↑j
+                btst    #6,(MMDFlags).l
+                beq.s   Jump
+                bset    #1,(MemMode).l
 
-loc_2DC:                                ; CODE XREF: sub_286+4C↑j
+Jump:                                   ; CODE XREF: LoadFile+4C↑j
                 jsr     (a0)
-                move.b  #0,($FF0583).l
-                move.l  #$FF021A,($FFFD0E).w
-                move.l  #$FF0212,($FFFD08).w
-                move.w  #$8134,($FF0596).l
-                move.w  #$8134,($C00004).l
-                bset    #1,($A12003).l
+                move.b  #0,(VBlnkRtnCount).l
+                move.l  #HInt,(BIOSVIntVector).w
+                move.l  #VInt,(BIOSHIntVector).w
+                move.w  #$8134,(VDPDefaultMode).l
+                move.w  #$8134,(VDPCtrl).l
+                bset    #1,(MemMode).l
 
-loc_30E:                                ; CODE XREF: sub_286+C↑j
+NoFile:                                 ; CODE XREF: LoadFile+C↑j
                 movea.l (sp)+,a0
                 rts
-; End of function sub_286
+; End of function LoadFile
 
-; ---------------------------------------------------------------------------
-                bset    #0,($A12000).l
-                rte
 
 ; =============== S U B R O U T I N E =======================================
 
 
-sub_31C:                                ; CODE XREF: sub_286+2↑p
-                move.w  d0,($A12010).l
+VInt:                                   ; DATA XREF: ROM:IPX↑o
+                                        ; LoadFile+68↑o
+                bset    #0,(SubCPUInt).l
 
-loc_322:                                ; CODE XREF: sub_31C+C↓j
-                tst.w   ($A12020).l
-                beq.s   loc_322
-                move.w  #0,($A12010).l
+HInt:                                   ; DATA XREF: LoadFile+60↑o
+                rte
+; End of function VInt
 
-loc_332:                                ; CODE XREF: sub_31C+1C↓j
-                tst.w   ($A12020).l
-                bne.s   loc_332
+
+; =============== S U B R O U T I N E =======================================
+
+
+SPExecute:                              ; CODE XREF: LoadFile+2↑p
+                move.w  d0,(CommReg).l
+
+WaitReturn:                             ; CODE XREF: SPExecute+C↓j
+                tst.w   (StatusReg).l
+                beq.s   WaitReturn
+                move.w  #0,(CommReg).l
+
+WaitClear:                              ; CODE XREF: SPExecute+1C↓j
+                tst.w   (StatusReg).l
+                bne.s   WaitClear
                 rts
-; End of function sub_31C
+; End of function SPExecute
 
 ; end of 'ROM'
 
