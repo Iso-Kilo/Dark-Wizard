@@ -70,6 +70,7 @@ TimeFuture:      equ 2
 ; ---------------------------------------------------------------------------
 
 ; enum MiscVars
+DMNA:            equ 1
 VDPCtrl:         equ $C00004
 TimeAttackFlag:  equ $FF0580
 VBlnkRtnCount:   equ $FF0583
@@ -115,8 +116,8 @@ Header:         dc.b   0
 IPX:                                    ; DATA XREF: ROM:00FEFF02↑o
                                         ; ROM:00FEFF08↑o
                 move.l  #VInt,(BIOSHIntVector).w
-                bset    #1,(MemMode).l
-                moveq   #5,d0
+                bset    #DMNA,(MemMode).l
+                moveq   #FileSega,d0
                 bsr.w   LoadFile
 
 LoadTitleScreen:                        ; CODE XREF: ROM:00FF005E↓j
@@ -195,7 +196,7 @@ LoadOpening:                            ; CODE XREF: ROM:00FF001E↑j
 ; ---------------------------------------------------------------------------
 
 LoadMainGame:                           ; CODE XREF: ROM:00FF0024↑j
-                move.b  #1,(TimePeriod).l
+                move.b  #TimePresent,(TimePeriod).l
                 move.b  #0,(TimeAttackFlag).l
                 bsr.w   LoadR11
                 tst.b   (Lives).l
@@ -213,7 +214,7 @@ LoadCominSoon:                          ; CODE XREF: ROM:00FF00C8↑j
 
 LoadR11:                                ; CODE XREF: ROM:00FF00BE↑p
                 lea     R11Table(pc),a0
-                move.w  #0,(Act).l
+                move.w  #Act1,(Act).l
                 bra.w   LoadLevel
 ; End of function LoadR11
 
@@ -223,7 +224,7 @@ LoadR11:                                ; CODE XREF: ROM:00FF00BE↑p
 
 LoadR12:                                ; CODE XREF: ROM:00FF00CA↑p
                 lea     R12Table(pc),a0
-                move.w  #1,(Act).l
+                move.w  #Act2,(Act).l
                 bra.w   *+4
 ; ---------------------------------------------------------------------------
 
